@@ -1,8 +1,9 @@
-local clangArgs = {}
+	local clangArgs = {}
 local output
 local clang = "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang.ki"
 local kiwisecClang = "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/kiwisec/clang"
 local isCompileOnly = false
+local obfuscate = false
 
 string.startsWith = function(str, substr)
     if str == nil or substr == nil then
@@ -36,8 +37,11 @@ end
 function processClangArgs()
 	print("Input command:[", table.concat(arg, " "),"]\\n")
 	for k, v in ipairs(arg) do
-		--print(k, v)
-		if v:startsWith("-o") then
+		-- print(k, v, "\\n")
+		if v:find("-DObfuscate") then
+			obfuscate = true
+			clangArgs[#clangArgs + 1] = v
+		elseif v:startsWith("-o") then
 			if (v:len() == 2) then
 				output = arg[k + 1]
 				arg[k + 1] = ""
@@ -68,9 +72,13 @@ function execClang()
 		os.execute(table.concat({clang, cmdArgs}, " "))
 		return 
 	end
+	if not obfuscate then
+		os.execute(table.concat({clang, cmdArgs, "-o"..  output}, " "))
+		return 
+	end
 	if (isCompileOnly) then
 		os.execute(table.concat({clang, cmdArgs, "-o"..  output, "-emit-llvm"}, " "))
-		os.execute(table.concat({kiwisecClang, "-kce-bc=" .. output}, " "))
+		os.execute(table.concat({kiwisecClang, "-kce-bc=" .. output, "-kce-fla=1", "-kce-bcf=1"}, " "))
 		if (os.rename(output .. ".bc", output .. ".bc")) then
 			os.execute(table.concat({"rm", "-rfv", output, output .. ".bc"}, " "))
 			os.rename(output .. ".o", output)
